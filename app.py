@@ -18,7 +18,10 @@ pd_client_id = "39410f6993d2000c1af56e61a3d249b35a1c572da17d593408ade71109621a99
 app = Flask(__name__)
 app.secret_key = '/xl3#:9{AKf7e?rbQOXrc'
 
-connect('pymartbot')
+if os.environ['MONGODB_URI']:
+	connect('pymartbot', host=os.environ['MONGODB_URI'])
+else:
+	connect('pymartbot')
 
 class User(EmbeddedDocument):
 	slack_userid = StringField(required=True)
