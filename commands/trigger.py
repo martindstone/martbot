@@ -11,7 +11,7 @@ class Trigger(Command):
 
 	def __init__(self):
 		self.name = "trigger"
-		self.patterns = [re.compile(p) for p in [r"^trig", r"^page", r"mbtrigger"]]
+		self.patterns = [re.compile(p) for p in [r"^trig", r"^page", r"^mbtrigger"]]
 
 	def slack_action(self, team, user, req):
 		req.pprint()
@@ -131,6 +131,7 @@ class Trigger(Command):
 			)
 
 	def slack_command(self, team, user, form):
+		print("here we go")
 		sc = SlackClient(team["slack_app_token"])
 		channel = form.get('channel_id')
 		trigger_id = form.get('trigger_id')
@@ -173,6 +174,7 @@ class Trigger(Command):
 				]
 			}
 		)
+		print(call)
 		return ('', 200)
 
 

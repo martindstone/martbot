@@ -6,6 +6,7 @@ from dotmap import DotMap
 from threading import Thread
 import json
 import os
+import sys
 import re
 import requests
 from slackclient import SlackClient
@@ -13,12 +14,12 @@ import pprint
 
 import command
 
-pd_client_id = "39410f6993d2000c1af56e61a3d249b35a1c572da17d593408ade71109621a99"
+pd_client_id = os.environ.get('PD_CLIENT_ID') or "set your PD_CLIENT_ID environment variable"
 
 app = Flask(__name__)
-app.secret_key = '/xl3#:9{AKf7e?rbQOXrc'
+app.secret_key = os.environ.get('FLASK_SECRET_KEY') or os.urandom(20)
 
-if os.environ['MONGODB_URI']:
+if os.environ.get('MONGODB_URI'):
 	connect('pymartbot', host=os.environ['MONGODB_URI'])
 else:
 	connect('pymartbot')
@@ -176,8 +177,10 @@ def slack_load_options():
 
 @app.route('/slack_command', methods=['POST'])
 def slack_command():
-	# for k in request.form.keys():
-	# 	print("{}: {}".format(k, request.form.get(k)))
+	print(request.content_type)
+	if request.form:
+		for k in request.form.keys():
+			print("{}: {}".format(k, request.form.get(k)))
 	command_text = re.sub(r"^/", "", request.form.get('command'))
 	slack_team_id = request.form.get('team_id')
 	slack_userid = request.form.get('user_id')
@@ -198,7 +201,7 @@ def slack_command():
 	user = [user for user in team_record.users if user.slack_userid == slack_userid]
 	user = user[0] if user else None
 	if not user or user["pd_subdomain"] == "pdt-k18":
-
+		print("no user")
 		slack_response = {
 			"response_type": "ephemeral",
 			"text": "",
@@ -220,7 +223,10 @@ def slack_command():
 		)
 		return ('', 200)
 
+	print("command is {}".format(command_text))
 	for command in commands:
+		if command.matches(command_text):
+			print("{} matches".format(command.name))
 		if command.matches(command_text) and callable(getattr(command, "slack_command")):
 			return command.slack_command(team, user, request.form)
 
@@ -267,7 +273,7 @@ def code():
 		session['slack_bot_token'] = bot.get('bot_access_token')
 		session['slack_bot_userid'] = bot.get('bot_user_id')
 	except:
-		print("Unexpected error:", sys.exc_info()[0])
+		print("Unexpected error in /code:", sys.exc_info()[0])
 		return redirect(url_for('index'))
 	else:
 		return redirect("https://app.pagerduty.com/oauth/authorize?client_id={}&redirect_uri=https://{}/pdtoken&response_type=token".format(pd_client_id, host))
