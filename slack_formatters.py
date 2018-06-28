@@ -28,6 +28,10 @@ def make_incident_attachments(incident):
 	incident_link = "*<{}|[#{}]>* {}".format(incident.html_url, incident.incident_number, incident.title)
 	response = "{} {}".format(incident_status_emoji[incident.status], incident_link)
 
+	created = dateparser.parse(incident.created_at)
+	createdts = int(created.timestamp())
+	incident_datestr = "<!date^{}^{{date_num}} {{time}}|{}>".format(createdts, created)
+
 	assignments = ", ".join(["<{}|{}>".format(a.assignee.html_url, a.assignee.summary) for a in incident.assignments])
 	fields = [
 		{
@@ -38,6 +42,11 @@ def make_incident_attachments(incident):
 		{
 			"title": "Service",
 			"value": "<{}|{}>".format(incident.service.html_url, incident.service.summary),
+			"short": True
+		},
+		{
+			"title": "Created at",
+			"value": incident_datestr,
 			"short": True
 		}
 	]
@@ -150,6 +159,7 @@ def make_service_text(service, expand_ep=False, pd_token=None):
 		response += make_ep_text(ep.get('escalation_policy'), include_intro=False)
 
 	return response
+
 
 def make_services_list(services):
 	# call with services endpoint output

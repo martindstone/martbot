@@ -119,7 +119,6 @@ class Incidents(Command):
 					]
 				}
 			)
-			print(call)
 		elif req.submission.note:
 			me = DotMap(pd.request(oauth_token=user["pd_token"], endpoint="users/me"))
 			headers = {
