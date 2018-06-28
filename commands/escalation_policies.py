@@ -7,6 +7,7 @@ from dotmap import DotMap
 from slackclient import SlackClient
 
 import pd
+import slack_formatters
 from command import Command
 
 class Escalation_Policies(Command):
@@ -42,48 +43,12 @@ class Escalation_Policies(Command):
 		response_url = req.response_url
 
 		ep = pd.request(oauth_token=user.pd_token, endpoint="/escalation_policies/{}".format(ep_id), params={"include[]": "current_oncall"})
-		ep = DotMap(ep.get('escalation_policy'))
-
-		ep_link = "<{}|{}>".format(ep.html_url, ep.summary)
-		response = ":arrow_forward: Escalation Policy *{}* in subdomain *{}*:\n\n".format(ep_link, user["pd_subdomain"])
-		if ep.description and ep.description != ep.summary:
-			response += "Description: {}\n".format(ep.description)
-
-		for i, rule in enumerate(ep.escalation_rules):
-			if i == 0:
-				response += "\t*Level 1:* Immediately after an incident is triggered, notify:\n"
-			else:
-				response += "\t*Level {}:* Notify:\n".format(i+1)
-
-			for oncall in rule.current_oncalls:
-				if oncall.escalation_target.type == "user_reference":
-					response += "\t\t:slightly_smiling_face: Always on call: *{}*\n".format(oncall.user.name)
-				else:
-					sch_link = "<{}|{}>".format(oncall.escalation_target.html_url, oncall.escalation_target.summary)
-					user_link = "<https://{}.pagerduty.com/users/{}|{}>".format(user["pd_subdomain"], oncall.user.id, oncall.user.name)
-
-					response += "\t\t:date: Schedule: *{}*\n\t\t\t\t:slightly_smiling_face: On call now: *{}* ".format(sch_link, user_link)
-
-					start = dateparser.parse(oncall.start)
-					end = dateparser.parse(oncall.end)
-					startts = int(start.timestamp())
-					endts = int(end.timestamp())
-
-					response += "(<!date^{}^{{date_num}} {{time}}|{}> - <!date^{}^{{date_num}} {{time}}|{}>)\n".format(startts, start, endts, end)
-
-			response += "\t\t_Escalates after *{} minutes*_\n\n".format(rule.escalation_delay_in_minutes)
-
-		if ep.num_loops > 0:
-			response += "\t_:arrows_counterclockwise: Repeats *{} times* if no one acknowledges incidents_".format(ep.num_loops)
-		else:
-			response += "\t:arrows_counterclockwise: _Does not repeat_"
-
-		r = requests.post(response_url,
+		requests.post(response_url,
 			headers={
 				"Content-type": "application/json"
 			},
 			data=json.dumps({
-				"text": response,
+				"text": slack_formatters.make_ep_text(ep.get('escalation_policy')),
 				"color": "#25c151",
 				"replace_original": True
 			})

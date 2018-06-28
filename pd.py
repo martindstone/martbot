@@ -41,18 +41,15 @@ def fetch(api_key=None, oauth_token=None, endpoint=None, params=None):
 	if params:
 		my_params = params.copy()
 
-	print(my_params)
 	fetched_data = []
 	offset = 0
 	while True:
 		r = request(api_key=api_key, oauth_token=oauth_token, endpoint=endpoint, params=my_params)
-		print("got {} {}".format(len(r[endpoint]), endpoint))
 		fetched_data.extend(r[endpoint])
 		if not r["more"]:
 			break
 		offset += r["limit"]
 		my_params["offset"] = offset
-	print("total {} {}".format(len(fetched_data), endpoint))
 	return fetched_data
 
 def fetch_incidents(api_key=None, oauth_token=None):

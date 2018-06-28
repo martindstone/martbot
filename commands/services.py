@@ -6,6 +6,7 @@ from dotmap import DotMap
 from slackclient import SlackClient
 
 import pd
+import slack_formatters
 from command import Command
 
 class Services(Command):
@@ -13,13 +14,6 @@ class Services(Command):
 	def __init__(self):
 		self.name = "services"
 		self.patterns = [re.compile(p) for p in [r"^services", r"^mbserv"]]
-		self.status_emoji = {
-			"active": ":white_check_mark:",
-			"warning": ":warning:",
-			"critical": ":octagonal_sign:",
-			"maintenance": ":double_vertical_bar:",
-			"disabled": ":black_square_for_stop:"
-		}
 
 	def slack_event(self, team, user, req):
 		sc = SlackClient(team["slack_bot_token"])
@@ -84,25 +78,21 @@ class Services(Command):
 		service_id = req.actions[0].selected_options[0].value
 		response_url = req.response_url
 
-		service = pd.request(oauth_token=user.pd_token, endpoint="/services/{}".format(service_id))
-		service = DotMap(service.get('service'))
+		if re.search(r"brief", req.callback_id):
+			expand_ep = False
+		else:
+			expand_ep = True
 
-		service_link = "<{}|{}>".format(service.html_url, service.summary)
-		ep_link = "<{}|{}>".format(service.escalation_policy.html_url, service.escalation_policy.summary)
-		response = ":desktop_computer: Service {} in subdomain {}:\n\n".format(service_link, user.pd_subdomain)
-		if service.description and service.description != service.summary:
-			response += "Description: {}\n".format(service.description)
-		response += "Status: {} {}\n".format(self.status_emoji.get(service.get("status").__str__()), service.get("status").__str__().title())
-		response += "Escalation Policy: {}\n".format(ep_link)
+		service = pd.request(oauth_token=user.pd_token, endpoint="/services/{}".format(service_id))
 
 		r = requests.post(response_url,
 			headers={
 				"Content-type": "application/json"
 			},
-			data=json.dumps({
-				"text": response,
+			json={
+				"text": slack_formatters.make_service_text(service.get('service'), expand_ep=expand_ep, pd_token=user["pd_token"]),
 				"replace_original": True
-			})
+			}
 		)
 
 	def slack_load_options(self, team, user, req):
@@ -121,34 +111,54 @@ class Services(Command):
 
 	def slack_command(self, team, user, form):
 		response_url = form.get('response_url')
+		command_text = form.get('text')
 
-		slack_response = {
-			"response_type": "ephemeral",
-			"text": "",
-			"attachments": [{
-				"text": "Choose a service in domain *{}*:".format(user["pd_subdomain"]),
-				"color": "#25c151",
-				"attachment_type": "default",
-				"callback_id": "services",
-				"actions": [{
-					"name": "services",
-					"text": "Pick a service",
-					"type": "select",
-					"data_source": "external"
+		if re.search(r"list|all|trig|red|crit|ack|orange|amber|warn|open", command_text):
+			services = pd.fetch_services(oauth_token=user["pd_token"])
+			if re.search(r"trig|red|crit", command_text):
+				response_text = "Critical services"
+				services = [service for service in services if service.get("status") == "critical"]
+			elif re.search(r"ack|orange|amber|warn", command_text):
+				response_text = "Warning services"
+				services = [service for service in services if service.get("status") == "warning"]
+			elif re.search(r"open", command_text):
+				response_text = "Services with open incidents"
+				services = [service for service in services if service.get("status") == "warning" or service.get("status") == "critical"]
+			else:
+				response_text = "All services"
+
+			response_text += " in domain *{}*:\n".format(user["pd_subdomain"])
+
+			if services:
+				response_text += slack_formatters.make_services_list(services)
+			else:
+				response_text += "\tNo services found."
+
+			slack_response = {
+				"text": response_text,
+				"replace_original": True
+			}
+		else:
+			slack_response = {
+				"response_type": "ephemeral",
+				"text": "",
+				"attachments": [{
+					"text": "Choose a service in domain *{}*:".format(user["pd_subdomain"]),
+					"color": "#25c151",
+					"attachment_type": "default",
+					"callback_id": "services {}".format(command_text),
+					"actions": [{
+						"name": "services",
+						"text": "Pick a service",
+						"type": "select",
+						"data_source": "external"
+					}	]
 				}]
-			}]
-		}
+			}
+
 		requests.post(response_url,
 			json=slack_response,
 			headers={'Content-type': 'application/json'}
 		)
 
 		return ('', 200)
-
-
-
-
-
-
-
-

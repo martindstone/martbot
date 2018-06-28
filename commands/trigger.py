@@ -153,9 +153,3 @@ class Trigger(Command):
 			}
 		)
 		return ('', 200)
-
-
-
-
-
-
