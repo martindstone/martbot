@@ -5,6 +5,7 @@ from dotmap import DotMap
 from slackclient import SlackClient
 
 import pd
+import slack_formatters
 from command import Command
 
 class Trigger(Command):
@@ -14,10 +15,6 @@ class Trigger(Command):
 		self.patterns = [re.compile(p) for p in [r"^trig", r"^page", r"^mbtrigger"]]
 
 	def slack_action(self, team, user, req):
-		req.pprint()
-
-		sc = SlackClient(team["slack_bot_token"])
-
 		if req.type == "dialog_submission":
 			incident = {
 				"incident": {
@@ -47,41 +44,23 @@ class Trigger(Command):
 						}
 					}
 				]
-			r = DotMap(pd.request(
+			r = pd.request(
 				oauth_token=user["pd_token"], 
 				endpoint="incidents", 
 				method='POST', 
 				data=incident
-			))
+			)
 
-			assignments = ", ".join(["<{}|{}>".format(a.assignee.html_url, a.assignee.summary) for a in r.incident.assignments])
-			fields = [
-						{
-							"title": "Service",
-							"value": "<{}|{}>".format(r.incident.service.html_url, r.incident.service.summary),
-							"short": True
-						},
-						{
-							"title": "Assigned to",
-							"value": assignments,
-							"short": True
-						}
-
-					]
-			slack_response = {
-				"response_type": "ephemeral",
-				"text": "Created an incident in domain *{}*:".format(user["pd_subdomain"]),
-				"attachments": [{
-					"text": "*<{}|[#{}]>* {}".format(r.incident.html_url, r.incident.incident_number, self.slack_escape(r.incident.title)),
-					"color": "#25c151",
-					"attachment_type": "default",
-					"fields": fields
-				}]
-			}
 			response_url = req.response_url
 			requests.post(response_url,
-				json=slack_response,
-				headers={'Content-type': 'application/json'}
+				headers={
+					"Content-type": "application/json"
+				},
+				json={
+					"text": "Created an incident in domain *{}*:".format(user["pd_subdomain"]),
+					"attachments": slack_formatters.make_incident_attachments(r.get('incident')),
+					"replace_original": True
+				}
 			)
 		return('', 200)
 
@@ -131,7 +110,6 @@ class Trigger(Command):
 			)
 
 	def slack_command(self, team, user, form):
-		print("here we go")
 		sc = SlackClient(team["slack_app_token"])
 		channel = form.get('channel_id')
 		trigger_id = form.get('trigger_id')
@@ -174,7 +152,6 @@ class Trigger(Command):
 				]
 			}
 		)
-		print(call)
 		return ('', 200)
 
 

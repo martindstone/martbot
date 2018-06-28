@@ -218,7 +218,6 @@ def slack_command():
 		)
 		return ('', 200)
 
-	print("command is {}".format(command_text))
 	for command in commands:
 		if command.matches(command_text) and callable(getattr(command, "slack_command")):
 			return command.slack_command(team, user, request.form)
