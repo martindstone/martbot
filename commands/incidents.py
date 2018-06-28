@@ -14,7 +14,8 @@ class Incidents(Command):
 		self.patterns = [re.compile(p) for p in [r"^incidents", r"^mbincidents"]]
 		self.status_emoji = {
 			"acknowledged": ":warning:",
-			"triggered": ":octagonal_sign:"
+			"triggered": ":octagonal_sign:",
+			"resolved": ":white_check_mark:"
 		}
 
 	def slack_event(self, team, user, req):
@@ -43,12 +44,9 @@ class Incidents(Command):
 			attachments=attachments
 		)
 
-	def slack_action(self, team, user, req):
-		incident_id = req.actions[0].selected_options[0].value
-		response_url = req.response_url
-
-		incident = pd.request(oauth_token=user.pd_token, endpoint="/incidents/{}".format(incident_id))
-		incident = DotMap(incident.get('incident'))
+	def humanize_incident(self, incident):
+		incident = DotMap(incident.get('incident') or incident.get('incidents')[0])
+		incident_id = incident.id
 
 		incident_link = "*<{}|[#{}]>* {}".format(incident.html_url, incident.incident_number, incident.title)
 		response = "{} {}".format(self.status_emoji[incident.status], incident_link)
@@ -56,32 +54,153 @@ class Incidents(Command):
 		assignments = ", ".join(["<{}|{}>".format(a.assignee.html_url, a.assignee.summary) for a in incident.assignments])
 		fields = [
 			{
-				"title": "Service",
-				"value": "<{}|{}>".format(incident.service.html_url, incident.service.summary),
+				"title": "Status",
+				"value": incident.status.title(),
 				"short": True
 			},
 			{
-				"title": "Assigned to",
-				"value": assignments,
+				"title": "Service",
+				"value": "<{}|{}>".format(incident.service.html_url, incident.service.summary),
 				"short": True
 			}
-
 		]
-		r = requests.post(response_url,
-			headers={
-				"Content-type": "application/json"
-			},
-			data=json.dumps({
-				"text": "",
-				"attachments": [{
-					"text": response,
-					"color": "#25c151",
-					"attachment_type": "default",
-					"fields": fields
-				}],
-				"replace_original": True
+
+		actions = []
+
+		if incident.status == "triggered" or incident.status == "acknowledged":
+			fields.append({
+				"title": "Assigned To",
+				"value": assignments,
+				"short": True				
 			})
-		)
+			actions.extend([
+				{
+					"name": "acknowledge",
+					"text": "Acknowledge",
+					"type": "button",
+					"value": incident_id
+				},
+				{
+					"name": "resolve",
+					"text": "Resolve",
+					"type": "button",
+					"value": incident_id
+				}
+			])
+		actions.append({
+			"name": "annotate",
+			"text": "Add Note",
+			"type": "button",
+			"value": incident_id
+		})
+
+		attachments = [{
+			"text": response,
+			"color": "#25c151",
+			"attachment_type": "default",
+			"fields": fields,
+			"callback_id": "incidents",
+			"actions": actions
+		}]
+		return attachments
+
+	def slack_action(self, team, user, req):
+		if req.actions[0].name == 'incidents':
+			incident_id = req.actions[0].selected_options[0].value
+			response_url = req.response_url
+
+			incident = pd.request(oauth_token=user.pd_token, endpoint="/incidents/{}".format(incident_id))
+
+			r = requests.post(response_url,
+				headers={
+					"Content-type": "application/json"
+				},
+				json={
+					"text": "",
+					"attachments": self.humanize_incident(incident),
+					"replace_original": True
+				}
+			)
+
+		elif req.actions[0].name == 'acknowledge' or req.actions[0].name == 'resolve':
+			incident_id = req.actions[0].value
+			response_url = req.response_url
+			me = DotMap(pd.request(oauth_token=user["pd_token"], endpoint="users/me"))
+			headers = {
+				"From": me.user.email
+			}
+			body = {
+				"incidents": [
+					{
+						"id": incident_id,
+						"type": "incident_reference",
+						"status": "{}d".format(req.actions[0].name)
+					}
+				]
+			}
+			incident = pd.request(
+				oauth_token=user["pd_token"], 
+				endpoint="incidents",
+				method="PUT",
+				addheaders=headers,
+				data=body
+			)
+			r = requests.post(response_url,
+				headers={
+					"Content-type": "application/json"
+				},
+				json={
+					"text": "",
+					"attachments": self.humanize_incident(incident),
+					"replace_original": True
+				}
+			)
+		elif req.actions[0].name == 'annotate':
+			incident_id = req.actions[0].value
+			sc = SlackClient(team["slack_app_token"])
+			trigger_id = req.trigger_id
+
+			call = sc.api_call("dialog.open",
+				trigger_id=trigger_id,
+				dialog={
+					"callback_id": "incidents {}".format(incident_id),
+					"title": "Add a note",
+					"submit_label": "Annotate",
+					"elements": [
+						{
+							"name": "note",
+							"label": "Note",
+							"type": "textarea",
+							"optional": False,
+							"placeholder": "Add your note text here"
+						}
+					]
+				}
+			)
+			print(call)
+		elif req.submission.note:
+			me = DotMap(pd.request(oauth_token=user["pd_token"], endpoint="users/me"))
+			headers = {
+				"Content-type": "application/json",
+				"From": me.user.email
+			}
+			body = {
+				"note": {
+					"content": req.submission.note
+				}
+			}
+			incident_id = req.callback_id.split()[1]
+			incident = pd.request(
+				oauth_token=user["pd_token"],
+				endpoint="incidents/{}/notes",
+				method="POST",
+				addheaders=headers,
+				data=body
+			)
+			print(incident)
+		else:
+			req.pprint()
+			
 
 
 	def slack_load_options(self, team, user, req):

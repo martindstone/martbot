@@ -12,7 +12,7 @@ class Services(Command):
 
 	def __init__(self):
 		self.name = "services"
-		self.patterns = [re.compile(p) for p in [r"^services"]]
+		self.patterns = [re.compile(p) for p in [r"^services", r"^mbserv"]]
 		self.status_emoji = {
 			"active": ":white_check_mark:",
 			"warning": ":warning:",
@@ -104,3 +104,51 @@ class Services(Command):
 				"replace_original": True
 			})
 		)
+
+	def slack_load_options(self, team, user, req):
+		endpoint = "services"
+		query = req.value
+		r = pd.request(oauth_token=user["pd_token"], endpoint=endpoint, params={"query": query})
+
+		# Slack dialogs expect "label", interactive message select menus expect "text" :-\
+		options_list = [{"text": elem["summary"], "label": elem["summary"], "value": elem["id"]} for elem in r[endpoint]]
+		if len(options_list) == 0:
+			options_list.append({"text": "Nothing found.", "value": "nothing"})
+		elif len(options_list) == 25:
+			options_list.append({"text": "See more services...", "value": "more:{}".format(0)})
+		return json.dumps({"options": options_list})
+
+
+	def slack_command(self, team, user, form):
+		response_url = form.get('response_url')
+
+		slack_response = {
+			"response_type": "ephemeral",
+			"text": "",
+			"attachments": [{
+				"text": "Choose a service in domain *{}*:".format(user["pd_subdomain"]),
+				"color": "#25c151",
+				"attachment_type": "default",
+				"callback_id": "services",
+				"actions": [{
+					"name": "services",
+					"text": "Pick a service",
+					"type": "select",
+					"data_source": "external"
+				}]
+			}]
+		}
+		requests.post(response_url,
+			json=slack_response,
+			headers={'Content-type': 'application/json'}
+		)
+
+		return ('', 200)
+
+
+
+
+
+
+
+

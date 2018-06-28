@@ -3,7 +3,7 @@ import requests
 
 BASE_URL = 'https://api.pagerduty.com'
 
-def request(api_key=None, oauth_token=None, endpoint=None, method="GET", params=None, data=None):
+def request(api_key=None, oauth_token=None, endpoint=None, method="GET", params=None, data=None, addheaders=None):
 
 	if not api_key and not oauth_token:
 		return None
@@ -20,6 +20,9 @@ def request(api_key=None, oauth_token=None, endpoint=None, method="GET", params=
 		headers["Authorization"] = "Token token={}".format(api_key)
 	else:
 		headers["Authorization"] = "Bearer {}".format(oauth_token)
+
+	if addheaders:
+		headers.update(addheaders)
 
 	req = requests.Request(
 		method=method,

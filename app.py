@@ -130,7 +130,7 @@ def slack_action():
 
 	if req.type == "dialog_submission":
 		for command in commands:
-			if command.matches(callback_id) and callable(getattr(command, "validate_submission")):
+			if command.matches(callback_id) and hasattr(command, "validate_submission") and callable(getattr(command, "validate_submission")):
 				error = command.validate_submission(team, user, req)
 				if error:
 					return (error, 200)
@@ -146,7 +146,7 @@ def slack_action():
 @app.route('/slack_load_options', methods=['POST'])
 def slack_load_options():
 	req = DotMap(json.loads(request.form.get('payload')))
-	req.pprint()
+
 	slack_team_id = req.team.id
 	slack_userid = req.user.id
 	callback_id = req.callback_id
@@ -177,10 +177,6 @@ def slack_load_options():
 
 @app.route('/slack_command', methods=['POST'])
 def slack_command():
-	print(request.content_type)
-	if request.form:
-		for k in request.form.keys():
-			print("{}: {}".format(k, request.form.get(k)))
 	command_text = re.sub(r"^/", "", request.form.get('command'))
 	slack_team_id = request.form.get('team_id')
 	slack_userid = request.form.get('user_id')
@@ -201,7 +197,6 @@ def slack_command():
 	user = [user for user in team_record.users if user.slack_userid == slack_userid]
 	user = user[0] if user else None
 	if not user or user["pd_subdomain"] == "pdt-k18":
-		print("no user")
 		slack_response = {
 			"response_type": "ephemeral",
 			"text": "",
@@ -225,13 +220,23 @@ def slack_command():
 
 	print("command is {}".format(command_text))
 	for command in commands:
-		if command.matches(command_text):
-			print("{} matches".format(command.name))
 		if command.matches(command_text) and callable(getattr(command, "slack_command")):
 			return command.slack_command(team, user, request.form)
 
 	return ('', 200)
 
+
+
+#####################
+#
+# Slack install URL
+#
+def slack_install_url():
+	return "https://slack.com/oauth/authorize?client_id={}&scope=bot,commands,chat:write:bot".format(os.environ.get('SLACK_CLIENT_ID'))
+
+@app.route('/slack_install')
+def slack_install():
+	return redirect(slack_install_url())
 
 #####################
 #
@@ -240,7 +245,7 @@ def slack_command():
 @app.route('/')
 def index():
 	session.clear()
-	return render_template('index.html', client_id=os.environ['SLACK_CLIENT_ID'])
+	return render_template('index.html', slack_install_url=slack_install_url())
 
 #####################
 #
@@ -304,7 +309,7 @@ def pdtoken():
 			return redirect("https://slack.com/app_redirect?app={}".format(os.environ['SLACK_APP_ID']))
 		else:
 			# got pd info but not slack info
-			return redirect("https://slack.com/oauth/authorize?scope=bot&client_id={}".format(os.environ['SLACK_CLIENT_ID']))
+			return redirect(slack_install_url())
 	else:
 		# funny hash thing from pd, server can't see it so use the browser to change the '#' to a '?'
 		return render_template('pdtoken.html')
