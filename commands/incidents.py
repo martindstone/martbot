@@ -21,27 +21,22 @@ class Incidents(Command):
 
 	def slack_event(self, team, user, req):
 		sc = SlackClient(team["slack_bot_token"])
-		message_text = req.event.text or req.event.message.text
-		search = re.search("^incidents( .*)$", message_text)
-
-		incidents = pd.fetch_incidents(oauth_token=user["pd_token"])
-
-		if not incidents:
-			sc.api_call("chat.postMessage",
-				channel=req.event.channel,
-				text="There are currently no open incidents in domain *{}*".format(user["pd_subdomain"])
-			)
-			return
-
 		attachments = [{
-			"text": "{} *<{}|[#{}]>* {}".format(self.status_emoji[incident["status"]], incident["html_url"], incident["incident_number"], self.slack_escape(incident["description"])),
+			"text": "Choose an incident in domain *{}*:".format(user["pd_subdomain"]),
 			"color": "#25c151",
-			"attachment_type": "default"
-		} for incident in pd.fetch_incidents(oauth_token=user["pd_token"])]
+			"attachment_type": "default",
+			"callback_id": "incidents",
+			"actions": [{
+				"name": "incidents",
+				"text": "Pick an incident",
+				"type": "select",
+				"data_source": "external"
+			}]
+		}]
 
 		sc.api_call("chat.postMessage",
 			channel=req.event.channel,
-			text="Open incidents in domain *{}*:".format(user["pd_subdomain"]),
+			text="",
 			attachments=attachments
 		)
 

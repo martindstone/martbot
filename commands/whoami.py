@@ -15,5 +15,5 @@ class Whoami(Command):
 		sc = SlackClient(team["slack_bot_token"])
 		sc.api_call("chat.postMessage",
 			channel=req.event.channel,
-			text="You're *{}* in domain *{}*".format(me.user.email, user["pd_subdomain"])
+			text="<@{}> is mapped to *{}* in domain *{}*".format(req.event.user, me.user.email, user["pd_subdomain"])
 		)

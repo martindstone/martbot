@@ -22,7 +22,7 @@ class Domain(Command):
 		slack_userid = user["slack_userid"]
 		host = os.environ['SERVER_NAME'] or "localhost"
 
-		sc.api_call("chat.postMessage",
+		sc.api_call("chat.postEphemeral",
 			channel=req.event.channel,
 			text="You're currently logged in to subdomain *{}* as *{}*".format(user["pd_subdomain"], me.user.email),
 			attachments=[{

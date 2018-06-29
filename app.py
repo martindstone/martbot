@@ -299,10 +299,19 @@ def pdtoken():
 			team.slack_app_token = session.get('slack_app_token')
 			team.slack_bot_token = session.get('slack_bot_token')
 			team.slack_bot_userid = session.get('slack_bot_userid')
+
 			slack_userid = session.get('slack_userid')
 			pd_token = request.args.get('access_token')
 			(pd_userid, pd_subdomain) = pd_me(pd_token)
-			team.users = [ User(slack_userid=slack_userid, pd_userid=pd_userid, pd_token=pd_token, pd_subdomain=pd_subdomain) ]
+
+			new_user = User(slack_userid=slack_userid, pd_userid=pd_userid, pd_token=pd_token, pd_subdomain=pd_subdomain)
+
+			indices = [i for i, user in enumerate(team.users) if user.slack_userid == slack_userid]
+			if len(indices) == 1:
+				team.users[indices[0]] = new_user
+			elif len(indices) == 0:
+				team.users.append(new_user)
+
 			team.save()
 			session.clear()
 			return redirect("https://slack.com/app_redirect?app={}".format(os.environ['SLACK_APP_ID']))
