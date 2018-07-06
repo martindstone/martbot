@@ -118,7 +118,7 @@ class Trigger(Command):
 			trigger_id=trigger_id,
 			dialog={
 				"callback_id": "trigger",
-				"title": "Trigger an incident in {}".format(user["pd_subdomain"]),
+				"title": "Trigger an incident",
 				"submit_label": "Trigger",
 				"elements": [
 					{
@@ -126,7 +126,7 @@ class Trigger(Command):
 						"label": "Service",
 						"type": "select",
 						"data_source": "external",
-						"placeholder": "In PD service"
+						"placeholder": "Services in {}".format(user["pd_subdomain"])
 					},
 					{
 						"name": "user",
@@ -134,7 +134,7 @@ class Trigger(Command):
 						"type": "select",
 						"data_source": "external",
 						"optional": True,
-						"placeholder": "For PD user"
+						"placeholder": "Users in {}".format(user["pd_subdomain"])
 					},
 					{
 						"name": "title",
@@ -152,4 +152,5 @@ class Trigger(Command):
 				]
 			}
 		)
+		print(call)
 		return ('', 200)
