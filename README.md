@@ -1,6 +1,10 @@
 # martbot
 
-Martbot is a Slack app that uses PD OAuth to connect to PagerDuty. Advantages of this approach are that the need to manually enter PD API tokens is eliminated, and that each Slack user in the workspace can independently log in to whatever PD domain and username they choose.
+Martbot is a Slack app that uses PD OAuth to connect to PagerDuty. Advantages of this approach:
+
+* The need to manually enter PD API tokens is eliminated
+* Each Slack user in the workspace can independently log in to whatever PD domain and username they choose.
+* Each Slack user will only be allowed to do things through the app that their mapped PD user has permission to do
 
 ## Implementation
 
