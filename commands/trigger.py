@@ -118,7 +118,7 @@ class Trigger(Command):
 			trigger_id=trigger_id,
 			dialog={
 				"callback_id": "trigger",
-				"title": "Trigger an incident",
+				"title": "Trigger an incident in {}".format(user["pd_subdomain"]),
 				"submit_label": "Trigger",
 				"elements": [
 					{
