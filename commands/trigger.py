@@ -152,5 +152,4 @@ class Trigger(Command):
 				]
 			}
 		)
-		print(call)
 		return ('', 200)
