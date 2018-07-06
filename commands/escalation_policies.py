@@ -2,7 +2,6 @@ import os
 import re
 import json
 import requests
-import dateparser
 from dotmap import DotMap
 from slackclient import SlackClient
 
@@ -64,7 +63,7 @@ class Escalation_Policies(Command):
 		if len(options_list) == 0:
 			options_list.append({"text": "Nothing found.", "value": "nothing"})
 		elif len(options_list) == 25:
-			options_list.insert(0, {"text": "(> 25 results, please type more letters.)", "value": "nothing"})
+			options_list.insert(0, {"text": "(> 25 found, please type more letters.)", "value": "nothing"})
 		return json.dumps({"options": options_list})
 
 

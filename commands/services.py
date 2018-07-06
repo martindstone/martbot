@@ -105,7 +105,7 @@ class Services(Command):
 		if len(options_list) == 0:
 			options_list.append({"text": "Nothing found.", "value": "nothing"})
 		elif len(options_list) == 25:
-			options_list.append({"text": "See more services...", "value": "more:{}".format(0)})
+			options_list.insert(0, {"text": "(> 25 found, please type more letters.)", "value": "nothing"})
 		return json.dumps({"options": options_list})
 
 
